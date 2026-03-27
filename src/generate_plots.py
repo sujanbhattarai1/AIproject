@@ -48,9 +48,9 @@ def plot_tour(coordinates, tour, tour_distance, num_cities, valid, save_dir="plo
                     lw=2
                 )
             )
-        ax.set_title(f"Tour Route  ✓   distance = {tour_distance:.3f}", fontsize=12)
+        ax.set_title(f"Tour Route success distance = {tour_distance:.3f}", fontsize=12)
     else:
-        ax.set_title("Tour Route  ✗   invalid — tune penalties", fontsize=12)
+        ax.set_title("Tour Route invalid — tune penalties", fontsize=12)
  
     ax.set_xlim(-0.1, 1.1)
     ax.set_ylim(-0.1, 1.1)
