@@ -2,7 +2,7 @@
 Hyperparameters
 """
 
-NUM_CITIES = 7
+NUM_CITIES = 4  
 
 PENALTY_ROW = 500
 PENALTY_COL = 500
