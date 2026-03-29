@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hopfield TSP Demo</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="logo">HOPFIELD<span>/tsp</span></div>
+    <div class="header-right">
+      <span style="font-size:11px; color:var(--text3); font-family:var(--mono);">click canvas to place cities</span>
+      <span id="status-badge" class="badge badge-idle">IDLE</span>
+    </div>
+  </header>
+
+  <div class="main">
+
+    <div>
+      <div class="canvas-label">city map — click to place · right-click to remove</div>
+      <canvas id="city-canvas"></canvas>
+    </div>
+
+    <div class="chart-row">
+      <div class="chart-box">
+        <div class="canvas-label" style="margin-bottom:8px;">energy convergence</div>
+        <canvas id="energy-chart" height="120"></canvas>
+      </div>
+      <div class="chart-box">
+        <div class="canvas-label" style="margin-bottom:8px;">activation matrix V[city][position]</div>
+        <canvas id="heatmap-canvas"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="sidebar">
+
+    <div class="section">
+      <div class="section-title">Live stats</div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">ITERATION</div>
+          <div class="stat-val" id="stat-iter">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">ENERGY</div>
+          <div class="stat-val" id="stat-energy">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">CITIES</div>
+          <div class="stat-val" id="stat-cities">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">DISTANCE</div>
+          <div class="stat-val" id="stat-dist">—</div>
+        </div>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Tour result</div>
+      <div class="tour-display" id="tour-display" style="color:var(--text3);">no result yet</div>
+      <div style="margin-top:8px;">
+        <div class="diag" id="diag-text">place 3–8 cities, tune penalties, then run.</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Controls</div>
+      <div class="btn-row">
+        <button class="btn primary" id="btn-run">▶ Run</button>
+        <button class="btn" id="btn-randomize">⊕ Randomize</button>
+        <button class="btn danger" id="btn-clear">✕ Clear</button>
+      </div>
+      <div class="speed-row">
+        <span style="font-size:10px;color:var(--text3);font-family:var(--mono);margin-right:2px;">SPEED</span>
+        <button class="speed-btn" data-steps="50">slow</button>
+        <button class="speed-btn active" data-steps="200">normal</button>
+        <button class="speed-btn" data-steps="1000">fast</button>
+        <button class="speed-btn" data-steps="9999">max</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Penalties</div>
+
+      <div class="hint" style="margin-bottom:14px;">
+        <strong>Row/Col</strong> = constraint strength. <strong>Distance</strong> = route quality. Too much distance → constraints break.
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span class="slider-name">Row penalty <em>each city once</em></span>
+          <span class="slider-val" id="v-row">500</span>
+        </div>
+        <input type="range" min="50" max="1500" value="500" step="50" id="sl-row">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span class="slider-name">Col penalty <em>one city per slot</em></span>
+          <span class="slider-val" id="v-col">500</span>
+        </div>
+        <input type="range" min="50" max="1500" value="500" step="50" id="sl-col">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span class="slider-name">Distance penalty <em>route quality</em></span>
+          <span class="slider-val" id="v-dist">200</span>
+        </div>
+        <input type="range" min="10" max="800" value="200" step="10" id="sl-dist">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span class="slider-name">Tour size penalty <em>exactly N active</em></span>
+          <span class="slider-val" id="v-tour">500</span>
+        </div>
+        <input type="range" min="50" max="1500" value="500" step="50" id="sl-tour">
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-header">
+          <span class="slider-name">Max iterations</span>
+          <span class="slider-val" id="v-iter">10,000</span>
+        </div>
+        <input type="range" min="1000" max="50000" value="10000" step="1000" id="sl-iter">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Penalty presets</div>
+      <div class="btn-row">
+        <button class="btn small preset-btn" data-preset="500,500,200,500">default</button>
+        <button class="btn small preset-btn" data-preset="800,800,100,800">safe</button>
+        <button class="btn small preset-btn" data-preset="400,400,400,400">quality</button>
+        <button class="btn small preset-btn" data-preset="1000,1000,50,1000">strict</button>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <span>hopfield network — travelling salesman problem</span>
+    <span>asynchronous update · sigmoid activation · energy minimisation</span>
+  </footer>
+
+</div>
+
+<script src="main.js"></script>
+</body>
+</html>
