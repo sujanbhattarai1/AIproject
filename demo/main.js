@@ -77,7 +77,6 @@ function drawCities(tour = null, valid = null) {
   const w = cityCanvas.width, h = cityCanvas.height, pad = 30;
   cityCtx.clearRect(0, 0, w, h);
 
-  // grid
   cityCtx.strokeStyle = "#1a1e2a";
   cityCtx.lineWidth = 0.5;
   for (let i = 0; i <= 5; i++) {
@@ -87,7 +86,6 @@ function drawCities(tour = null, valid = null) {
     cityCtx.beginPath(); cityCtx.moveTo(pad, y);  cityCtx.lineTo(w - pad, y); cityCtx.stroke();
   }
 
-  // tour edges
   if (tour && cities.length > 1) {
     const color = valid ? "#34d399" : "#f87171";
     cityCtx.strokeStyle = color;
@@ -107,7 +105,6 @@ function drawCities(tour = null, valid = null) {
     }
   }
 
-  // city dots + labels
   cities.forEach((c, i) => {
     const { cx, cy } = toCanvas(c.x, c.y);
     const grad = cityCtx.createRadialGradient(cx, cy, 0, cx, cy, 18);
@@ -270,13 +267,9 @@ async function startRun() {
 }
 
 function handleResult(data) {
-  // energy chart
   if (data.energyHistory?.length) populateEnergyChart(data.energyHistory);
-
-  // heatmap
   if (data.activation) drawHeatmap(data.activation);
 
-  // iteration count
   document.getElementById("stat-iter").textContent =
     data.energyHistory ? (data.energyHistory.length * 100).toLocaleString() : "—";
 
@@ -287,10 +280,15 @@ function handleResult(data) {
     document.getElementById("tour-display").style.color = "var(--green)";
     document.getElementById("stat-dist").textContent    = data.tourDistance.toFixed(3);
     document.getElementById("stat-dist").className      = "stat-val green";
+    const pct = data.twoOptImprovement;
+    document.getElementById("stat-2opt").textContent    = pct > 0 ? `-${pct.toFixed(1)}%` : "0%";
+    document.getElementById("stat-2opt").className      = pct > 0 ? "stat-val green" : "stat-val";
+    document.getElementById("stat-trials").textContent  = `${data.trialsRun}`;
     showDiag(
       `<span class="ok">✓ valid tour found</span>\n` +
       `distance: ${data.tourDistance.toFixed(4)}\n` +
-      `${data.tour.length - 1} edges`
+      (pct > 0 ? `2-opt improved by ${pct.toFixed(1)}%\n` : "") +
+      `${data.tour.length - 1} edges · best of ${data.trialsRun} trials`
     );
   } else {
     setBadge("invalid");
@@ -299,6 +297,9 @@ function handleResult(data) {
     document.getElementById("tour-display").style.color = "var(--red)";
     document.getElementById("stat-dist").textContent    = "—";
     document.getElementById("stat-dist").className      = "stat-val";
+    document.getElementById("stat-2opt").textContent    = "—";
+    document.getElementById("stat-2opt").className      = "stat-val";
+    document.getElementById("stat-trials").textContent  = `${data.trialsRun}`;
     const msgs = data.diagnostics?.length ? data.diagnostics : ["no diagnostics returned"];
     showDiag(`<span class="err">✗ no valid tour</span>\n` + msgs.map(m => "· " + m).join("\n"));
   }
@@ -338,6 +339,9 @@ function clearCities() {
   document.getElementById("stat-energy").textContent  = "—";
   document.getElementById("stat-dist").textContent    = "—";
   document.getElementById("stat-dist").className      = "stat-val";
+  document.getElementById("stat-2opt").textContent    = "—";
+  document.getElementById("stat-2opt").className      = "stat-val";
+  document.getElementById("stat-trials").textContent  = "—";
   document.getElementById("progress-bar").style.width = "0%";
   showDiag("place 3–8 cities, tune penalties, then run.");
   initEnergyChart();
@@ -397,4 +401,3 @@ window.addEventListener("resize", resizeCanvases);
 initEnergyChart();
 randomizeCities();
 setTimeout(resizeCanvases, 50);
-

@@ -59,6 +59,14 @@
           <div class="stat-label">DISTANCE</div>
           <div class="stat-val" id="stat-dist">—</div>
         </div>
+        <div class="stat-card">
+          <div class="stat-label">2-OPT ↓</div>
+          <div class="stat-val" id="stat-2opt">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">TRIALS</div>
+          <div class="stat-val" id="stat-trials">—</div>
+        </div>
       </div>
       <div class="progress-bar-wrap">
         <div class="progress-bar" id="progress-bar"></div>
@@ -99,51 +107,51 @@
       <div class="slider-group">
         <div class="slider-header">
           <span class="slider-name">Row penalty <em>each city once</em></span>
-          <span class="slider-val" id="v-row">500</span>
+          <span class="slider-val" id="v-row">1000</span>
         </div>
-        <input type="range" min="0" max="1500" value="500" step="50" id="sl-row">
+        <input type="range" min="0" max="2000" value="1000" step="50" id="sl-row">
       </div>
 
       <div class="slider-group">
         <div class="slider-header">
           <span class="slider-name">Col penalty <em>one city per slot</em></span>
-          <span class="slider-val" id="v-col">500</span>
+          <span class="slider-val" id="v-col">1000</span>
         </div>
-        <input type="range" min="0" max="1500" value="500" step="50" id="sl-col">
+        <input type="range" min="0" max="2000" value="1000" step="50" id="sl-col">
       </div>
 
       <div class="slider-group">
         <div class="slider-header">
           <span class="slider-name">Distance penalty <em>route quality</em></span>
-          <span class="slider-val" id="v-dist">200</span>
+          <span class="slider-val" id="v-dist">1</span>
         </div>
-        <input type="range" min="0" max="800" value="200" step="1" id="sl-dist">
+        <input type="range" min="0" max="800" value="1" step="1" id="sl-dist">
       </div>
 
       <div class="slider-group">
         <div class="slider-header">
           <span class="slider-name">Tour size penalty <em>exactly N active</em></span>
-          <span class="slider-val" id="v-tour">500</span>
+          <span class="slider-val" id="v-tour">1000</span>
         </div>
-        <input type="range" min="0" max="1500" value="500" step="50" id="sl-tour">
+        <input type="range" min="0" max="2000" value="1000" step="50" id="sl-tour">
       </div>
 
       <div class="slider-group">
         <div class="slider-header">
           <span class="slider-name">Max iterations</span>
-          <span class="slider-val" id="v-iter">10,000</span>
+          <span class="slider-val" id="v-iter">6,000</span>
         </div>
-        <input type="range" min="1000" max="50000" value="10000" step="1000" id="sl-iter">
+        <input type="range" min="1000" max="20000" value="6000" step="1000" id="sl-iter">
       </div>
     </div>
 
     <div class="section">
       <div class="section-title">Penalty presets</div>
       <div class="btn-row">
-        <button class="btn small preset-btn" data-preset="500,500,200,500">default</button>
+        <button class="btn small preset-btn" data-preset="1000,1000,1,1000">optimal</button>
+        <button class="btn small preset-btn" data-preset="500,500,50,500">balanced</button>
         <button class="btn small preset-btn" data-preset="800,800,100,800">safe</button>
-        <button class="btn small preset-btn" data-preset="400,400,400,400">quality</button>
-        <button class="btn small preset-btn" data-preset="1000,1000,50,1000">strict</button>
+        <button class="btn small preset-btn" data-preset="1500,1500,1,1500">strict</button>
       </div>
     </div>
 
