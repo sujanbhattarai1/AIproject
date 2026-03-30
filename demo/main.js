@@ -131,7 +131,7 @@ cityCanvas.addEventListener("click", e => {
   const x  = (px - pad) / (w - 2 * pad);
   const y  = (py - pad) / (w - 2 * pad);
   if (x < 0 || x > 1 || y < 0 || y > 1) return;
-  if (cities.length >= 10) { showDiag('<span class="err">max 10 cities</span>'); return; }
+  if (cities.length >= 20) { showDiag('<span class="err">max 10 cities</span>'); return; }
   cities.push({ x, y });
   updateCityCount();
   lastResult = null;

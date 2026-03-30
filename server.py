@@ -3,13 +3,16 @@ from flask_cors import CORS
 import numpy as np
 import config
 import sys, os
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 from network import run_hopfield, compute_energy
 from analysis import is_valid_tour, decode_tour, compute_tour_distance, two_opt
 
-NUM_TRIALS = 30
+NUM_TRIALS_MAX = 15
+NUM_KEEP_BEST  = 3
+MAX_WORKERS    = 4
 
 app = Flask(__name__)
 CORS(app)
@@ -18,6 +21,61 @@ CORS(app)
 @app.route("/health")
 def health():
     return jsonify({"status": "ok"})
+
+
+def _run_trial(args):
+    (N, distance_matrix, seed,
+     penalty_row, penalty_col, penalty_distance, penalty_toursize,
+     step_size, time_const, max_iter) = args
+
+    import sys, os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+    from network import run_hopfield
+    from analysis import is_valid_tour, decode_tour, compute_tour_distance, two_opt
+    import numpy as np
+
+    act, e_hist = run_hopfield(
+        num_cities       = N,
+        distance_matrix  = distance_matrix,
+        random_seed      = seed,
+        penalty_row      = penalty_row,
+        penalty_col      = penalty_col,
+        penalty_distance = penalty_distance,
+        penalty_toursize = penalty_toursize,
+        step_size        = step_size,
+        time_const       = time_const,
+        max_iter         = max_iter,
+    )
+
+    valid, binary_act = is_valid_tour(np.round(act, 4), N)
+
+    if valid:
+        t   = [int(i) for i in decode_tour(binary_act, N)]
+        d   = float(compute_tour_distance(t, distance_matrix))
+        t2  = [int(i) for i in two_opt(t, distance_matrix)]
+        d2  = float(compute_tour_distance(t2, distance_matrix))
+        return {
+            "valid":         True,
+            "activation":    act,
+            "energyHistory": e_hist,
+            "binary":        binary_act,
+            "tour":          t2,
+            "tourDistance":  d2,
+            "rawDistance":   d,
+            "seed":          seed,
+        }
+    else:
+        bin_act    = (act > 0.5).astype(int)
+        violations = int(np.sum(np.abs(bin_act.sum(axis=1) - 1)) +
+                        np.sum(np.abs(bin_act.sum(axis=0) - 1)))
+        return {
+            "valid":         False,
+            "activation":    act,
+            "energyHistory": e_hist,
+            "binary":        bin_act,
+            "violations":    violations,
+            "seed":          seed,
+        }
 
 
 @app.route("/solve", methods=["POST"])
@@ -47,82 +105,59 @@ def solve():
     time_const       = float(body.get("timeConst",     config.TIME_CONST))
     random_seed      = int(body.get("randomSeed",      config.RANDOM_SEED))
 
-    best_valid_result       = None
-    best_valid_dist         = float("inf")
-    best_invalid_result     = None
-    best_invalid_violations = float("inf")
+    trial_args = [
+        (N, distance_matrix, random_seed + i,
+         penalty_row, penalty_col, penalty_distance, penalty_toursize,
+         step_size, time_const, max_iter)
+        for i in range(NUM_TRIALS_MAX)
+    ]
 
-    for seed in [random_seed + i for i in range(NUM_TRIALS)]:
-        act, e_hist = run_hopfield(
-            num_cities       = N,
-            distance_matrix  = distance_matrix,
-            random_seed      = seed,
-            penalty_row      = penalty_row,
-            penalty_col      = penalty_col,
-            penalty_distance = penalty_distance,
-            penalty_toursize = penalty_toursize,
-            step_size        = step_size,
-            time_const       = time_const,
-            max_iter         = max_iter,
-        )
+    valid_results   = []
+    invalid_results = []
+    trials_run      = 0
 
-        valid, binary_act = is_valid_tour(np.round(act, 4), N)
+    with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        futures = {executor.submit(_run_trial, a): a for a in trial_args}
+        for future in as_completed(futures):
+            trials_run += 1
+            result = future.result()
+            if result["valid"]:
+                valid_results.append(result)
+                if len(valid_results) >= NUM_KEEP_BEST:
+                    for f in futures:
+                        f.cancel()
+                    break
+            else:
+                invalid_results.append(result)
 
-        if valid:
-            t  = [int(i) for i in decode_tour(binary_act, N)]
-            d  = float(compute_tour_distance(t, distance_matrix))
-            t2 = [int(i) for i in two_opt(t, distance_matrix)]
-            d2 = float(compute_tour_distance(t2, distance_matrix))
-            if d2 < best_valid_dist:
-                best_valid_dist   = d2
-                best_valid_result = {
-                    "activation":    act,
-                    "energyHistory": e_hist,
-                    "binary":        binary_act,
-                    "tour":          t2,
-                    "tourDistance":  d2,
-                    "rawDistance":   d,
-                    "seed":          seed,
-                }
-        else:
-            bin_act    = (act > 0.5).astype(int)
-            violations = int(np.sum(np.abs(bin_act.sum(axis=1) - 1)) +
-                            np.sum(np.abs(bin_act.sum(axis=0) - 1)))
-            if violations < best_invalid_violations:
-                best_invalid_violations = violations
-                best_invalid_result = {
-                    "activation":    act,
-                    "energyHistory": e_hist,
-                    "binary":        bin_act,
-                    "violations":    violations,
-                    "seed":          seed,
-                }
+    if valid_results:
+        best = min(valid_results, key=lambda r: r["tourDistance"])
 
-    if best_valid_result:
-        r                   = best_valid_result
-        activation          = r["activation"]
-        energy_history      = r["energyHistory"]
-        binary_activation   = r["binary"]
+        activation          = best["activation"]
+        energy_history      = best["energyHistory"]
+        binary_activation   = best["binary"]
         valid               = True
-        tour                = r["tour"]
-        tour_distance       = r["tourDistance"]
-        raw_distance        = r.get("rawDistance", tour_distance)
+        tour                = best["tour"]
+        tour_distance       = best["tourDistance"]
+        raw_distance        = best.get("rawDistance", tour_distance)
         two_opt_improvement = round((1 - tour_distance / raw_distance) * 100, 2) if raw_distance > 0 else 0.0
         tour_labels         = [chr(65 + i) for i in tour]
-        winning_seed        = r["seed"]
+        winning_seed        = best["seed"]
         diagnostics         = []
+
     else:
-        r                   = best_invalid_result
-        activation          = r["activation"]
-        energy_history      = r["energyHistory"]
-        binary_activation   = r["binary"]
+        best = min(invalid_results, key=lambda r: r["violations"])
+
+        activation          = best["activation"]
+        energy_history      = best["energyHistory"]
+        binary_activation   = best["binary"]
         valid               = False
         tour                = []
         tour_distance       = 0.0
         raw_distance        = 0.0
         two_opt_improvement = 0.0
         tour_labels         = []
-        winning_seed        = r["seed"]
+        winning_seed        = best["seed"]
 
         bin_act  = binary_activation
         row_sums = bin_act.sum(axis=1)
@@ -137,7 +172,7 @@ def solve():
         total = int(bin_act.sum())
         if total != N:
             diagnostics.append(f"{total} active neurons, expected {N} — adjust tour size penalty")
-        diagnostics.append(f"tried {NUM_TRIALS} seeds — none produced a valid tour")
+        diagnostics.append(f"tried {trials_run} trials — none produced a valid tour")
         if not diagnostics:
             diagnostics.append("no obvious constraint violations — try increasing distance penalty")
 
@@ -151,7 +186,7 @@ def solve():
         "energyHistory":     energy_history,
         "diagnostics":       diagnostics,
         "numCities":         N,
-        "trialsRun":         NUM_TRIALS,
+        "trialsRun":         trials_run,
         "winningSeed":       winning_seed,
     })
 
